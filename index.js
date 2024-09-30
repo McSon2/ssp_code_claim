@@ -103,7 +103,19 @@ async function listenToChannels(channelUsernames) {
           .map((username) => username.replace("@", ""))
           .includes(senderUsername)
       ) {
-        const messageText = message.message;
+        // Récupérer le texte complet du message
+        let messageText = "";
+        if (message.text) {
+          messageText = message.text;
+        } else if (message.message) {
+          messageText = message.message;
+        } else if (message.caption) {
+          messageText = message.caption;
+        } else {
+          console.log("Impossible de récupérer le texte du message.");
+          return;
+        }
+
         console.log(
           `Nouveau message reçu du canal @${senderUsername}: ${messageText}`
         );
