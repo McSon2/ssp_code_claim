@@ -105,13 +105,9 @@ async function listenToChannels(channelUsernames) {
       ) {
         // Récupérer le texte complet du message
         let messageText = "";
-        if (message.text) {
-          messageText = message.text;
-        } else if (message.message) {
-          messageText = message.message;
-        } else if (message.caption) {
-          messageText = message.caption;
-        } else {
+        messageText = message.message || message.text || message.caption;
+
+        if (!messageText) {
           console.log("Impossible de récupérer le texte du message.");
           return;
         }
@@ -119,6 +115,8 @@ async function listenToChannels(channelUsernames) {
         console.log(
           `Nouveau message reçu du canal @${senderUsername}: ${messageText}`
         );
+
+        console.log(`Message entier : ${message}`);
 
         // Envoyer le message aux clients WebSocket
         const messageData = {
