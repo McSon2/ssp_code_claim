@@ -124,6 +124,18 @@ async function listenToChannels(channelUsernames) {
           let messageText =
             message.message || message.text || message.caption || "";
 
+          if (message.entities) {
+            message.entities.forEach((entity) => {
+              if (entity.className === "MessageEntityTextUrl") {
+                const linkText = messageText.substr(
+                  entity.offset,
+                  entity.length
+                );
+                messageText += `\n${linkText}: ${entity.url}`;
+              }
+            });
+          }
+
           if (!messageText) {
             console.log("Message sans texte reçu.");
             return;
@@ -160,6 +172,18 @@ async function listenToChannels(channelUsernames) {
           // Traitement du message avec les informations limitées
           let messageText =
             message.message || message.text || message.caption || "";
+
+          if (message.entities) {
+            message.entities.forEach((entity) => {
+              if (entity.className === "MessageEntityTextUrl") {
+                const linkText = messageText.substr(
+                  entity.offset,
+                  entity.length
+                );
+                messageText += `\n${linkText}: ${entity.url}`;
+              }
+            });
+          }
 
           if (messageText) {
             console.log(
