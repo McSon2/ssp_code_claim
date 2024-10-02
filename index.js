@@ -69,6 +69,19 @@ async function initializeTelegram() {
     await telegramClient.connect();
     console.log("Vous êtes connecté à Telegram avec la session pré-générée.");
     telegramInitialized = true;
+
+    // Précacher les entités des canaux
+    for (const channelUsername of channelUsernames) {
+      try {
+        await telegramClient.getEntity(channelUsername);
+        console.log(`Entité mise en cache pour ${channelUsername}`);
+      } catch (error) {
+        console.error(
+          `Impossible de mettre en cache l'entité pour ${channelUsername}:`,
+          error
+        );
+      }
+    }
   } catch (error) {
     console.error("Erreur lors de la connexion à Telegram :", error);
     telegramInitialized = false;
@@ -95,42 +108,80 @@ async function listenToChannels(channelUsernames) {
   telegramClient.addEventHandler(async (event) => {
     const message = event.message;
     if (message && message.peerId) {
-      const sender = await telegramClient.getEntity(message.peerId);
-      const senderUsername = sender.username || sender.title; // Pour les canaux sans nom d'utilisateur
-      if (
-        senderUsername &&
-        channelUsernames
-          .map((username) => username.replace("@", ""))
-          .includes(senderUsername)
-      ) {
-        // Récupérer le texte complet du message
-        let messageText = "";
-        messageText = message.message || message.text || message.caption;
+      try {
+        const sender = await telegramClient.getEntity(message.peerId);
+        const senderUsername =
+          sender.username ||
+          sender.title ||
+          `channel_${message.peerId.channelId}`;
 
-        if (!messageText) {
-          console.log("Impossible de récupérer le texte du message.");
-          return;
-        }
+        if (
+          channelUsernames
+            .map((username) => username.replace("@", ""))
+            .includes(senderUsername)
+        ) {
+          // Récupérer le texte complet du message
+          let messageText =
+            message.message || message.text || message.caption || "";
 
-        console.log(
-          `Nouveau message reçu du canal @${senderUsername}: ${messageText}`
-        );
-
-        console.log(`Message entier : ${message}`);
-
-        // Envoyer le message aux clients WebSocket
-        const messageData = {
-          text: messageText,
-          from: sender,
-          date: message.date,
-          channel: senderUsername, // Ajout du nom du canal au message
-        };
-
-        connectedClients.forEach((client) => {
-          if (client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify(messageData));
+          if (!messageText) {
+            console.log("Message sans texte reçu.");
+            return;
           }
-        });
+
+          console.log(
+            `Nouveau message reçu du canal @${senderUsername}: ${messageText}`
+          );
+          console.log(`Message entier : ${JSON.stringify(message, null, 2)}`);
+
+          // Envoyer le message aux clients WebSocket
+          const messageData = {
+            text: messageText,
+            from: senderUsername,
+            date: message.date,
+            channel: senderUsername,
+          };
+
+          connectedClients.forEach((client) => {
+            if (client.readyState === WebSocket.OPEN) {
+              client.send(JSON.stringify(messageData));
+            }
+          });
+        }
+      } catch (error) {
+        if (error.message.includes("Could not find the input entity")) {
+          console.log(
+            "Impossible de récupérer l'entité pour ce message. Utilisation des informations disponibles."
+          );
+          const senderUsername = message.peerId.channelId
+            ? `channel_${message.peerId.channelId}`
+            : `user_${message.peerId.userId}`;
+
+          // Traitement du message avec les informations limitées
+          let messageText =
+            message.message || message.text || message.caption || "";
+
+          if (messageText) {
+            console.log(
+              `Nouveau message reçu du canal ${senderUsername}: ${messageText}`
+            );
+
+            const messageData = {
+              text: messageText,
+              from: senderUsername,
+              date: message.date,
+              channel: senderUsername,
+            };
+
+            connectedClients.forEach((client) => {
+              if (client.readyState === WebSocket.OPEN) {
+                client.send(JSON.stringify(messageData));
+              }
+            });
+          }
+        } else {
+          console.error("Erreur lors du traitement du message :", error);
+        }
       }
     }
   }, new NewMessage({}));
