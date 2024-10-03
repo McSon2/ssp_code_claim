@@ -120,9 +120,13 @@ async function listenToChannels(channelUsernames) {
             .map((username) => username.replace("@", ""))
             .includes(senderUsername)
         ) {
-          // Récupérer le texte complet du message
-          let messageText =
-            message.message || message.text || message.caption || "";
+          // Tenter d'obtenir le texte complet
+          let messageText = message.getText
+            ? message.getText()
+            : message.message || message.text || message.caption || "";
+
+          // Vérifier si le texte a des retours à la ligne et les conserver
+          // Optionnel : nettoyer ou formater le texte si nécessaire
 
           if (message.entities) {
             message.entities.forEach((entity) => {
@@ -170,8 +174,9 @@ async function listenToChannels(channelUsernames) {
             : `user_${message.peerId.userId}`;
 
           // Traitement du message avec les informations limitées
-          let messageText =
-            message.message || message.text || message.caption || "";
+          let messageText = message.getText
+            ? message.getText()
+            : message.message || message.text || message.caption || "";
 
           if (message.entities) {
             message.entities.forEach((entity) => {
