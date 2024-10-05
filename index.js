@@ -2,24 +2,22 @@ require("dotenv").config();
 const express = require("express");
 const { TelegramClient } = require("telegram");
 const { StringSession } = require("telegram/sessions");
-const WebSocket = require("ws"); // Pour le serveur WebSocket
+const WebSocket = require("ws");
 
 const app = express();
 
 const apiId = parseInt(process.env.TELEGRAM_API_ID, 10);
 const apiHash = process.env.TELEGRAM_API_HASH;
-const sessionString = process.env.TELEGRAM_SESSION; // Chaîne de session pré-générée
+const sessionString = process.env.TELEGRAM_SESSION;
 
 let telegramClient;
 let telegramInitialized = false;
 
-// Serveur WebSocket
 const wss = new WebSocket.Server({ noServer: true });
 const connectedClients = new Set();
 
 wss.on("connection", (ws) => {
   connectedClients.add(ws);
-
   ws.on("close", () => {
     connectedClients.delete(ws);
   });
@@ -32,7 +30,6 @@ const server = app.listen(PORT, () => {
 
 server.on("upgrade", (request, socket, head) => {
   const pathname = request.url;
-
   if (pathname === "/ws") {
     wss.handleUpgrade(request, socket, head, (ws) => {
       wss.emit("connection", ws, request);
@@ -42,7 +39,6 @@ server.on("upgrade", (request, socket, head) => {
   }
 });
 
-// Initialiser Telegram et écouter les canaux
 const channelUsernames = [
   "@stakebonusdrops",
   "@BonusDropStake",
@@ -50,11 +46,14 @@ const channelUsernames = [
   "@StakeKickCodes",
 ];
 
+const normalizedChannelUsernames = channelUsernames.map((username) =>
+  username.replace("@", "")
+);
+
 initializeTelegram().then(() => {
   listenToChannels(channelUsernames);
 });
 
-// Fonction pour initialiser la connexion Telegram
 async function initializeTelegram() {
   console.log("Initialisation de Telegram...");
   telegramClient = new TelegramClient(
@@ -70,7 +69,6 @@ async function initializeTelegram() {
     console.log("Vous êtes connecté à Telegram avec la session pré-générée.");
     telegramInitialized = true;
 
-    // Précacher les entités des canaux
     for (const channelUsername of channelUsernames) {
       try {
         await telegramClient.getEntity(channelUsername);
@@ -88,7 +86,27 @@ async function initializeTelegram() {
   }
 }
 
-// Fonction pour écouter les messages des canaux spécifiés
+function processMessageEntities(message) {
+  let messageText = message.message || message.text || "";
+  if (message.entities) {
+    message.entities.forEach((entity) => {
+      if (entity.className === "MessageEntityTextUrl") {
+        const linkText = messageText.substr(entity.offset, entity.length);
+        messageText += `\n${linkText}: ${entity.url}`;
+      }
+    });
+  }
+  return messageText;
+}
+
+function sendMessageToClients(messageData) {
+  connectedClients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(JSON.stringify(messageData));
+    }
+  });
+}
+
 async function listenToChannels(channelUsernames) {
   if (!telegramInitialized) {
     await initializeTelegram();
@@ -105,7 +123,7 @@ async function listenToChannels(channelUsernames) {
 
   const { NewMessage } = require("telegram/events");
 
-  telegramClient.addEventHandler(async (event) => {
+  async function handleNewMessage(event) {
     const message = event.message;
     if (message && message.peerId) {
       try {
@@ -115,42 +133,14 @@ async function listenToChannels(channelUsernames) {
           sender.title ||
           `channel_${message.peerId.channelId}`;
 
-        if (
-          channelUsernames
-            .map((username) => username.replace("@", ""))
-            .includes(senderUsername)
-        ) {
-          // Tenter d'obtenir le texte complet
-          let messageText = message.getText
-            ? message.getText()
-            : message.message || message.text || message.caption || "";
-
-          // Vérifier si le texte a des retours à la ligne et les conserver
-          // Optionnel : nettoyer ou formater le texte si nécessaire
-
-          if (message.entities) {
-            message.entities.forEach((entity) => {
-              if (entity.className === "MessageEntityTextUrl") {
-                const linkText = messageText.substr(
-                  entity.offset,
-                  entity.length
-                );
-                messageText += `\n${linkText}: ${entity.url}`;
-              }
-            });
-          }
-
-          if (!messageText) {
-            console.log("Message sans texte reçu.");
-            return;
-          }
+        if (normalizedChannelUsernames.includes(senderUsername)) {
+          const messageText = processMessageEntities(message);
 
           console.log(
-            `Nouveau message reçu du canal @${senderUsername}: ${messageText}`
+            `Nouveau message reçu du canal @${senderUsername}:\n${messageText}`
           );
           console.log(`Message entier : ${JSON.stringify(message, null, 2)}`);
 
-          // Envoyer le message aux clients WebSocket
           const messageData = {
             text: messageText,
             from: senderUsername,
@@ -158,11 +148,7 @@ async function listenToChannels(channelUsernames) {
             channel: senderUsername,
           };
 
-          connectedClients.forEach((client) => {
-            if (client.readyState === WebSocket.OPEN) {
-              client.send(JSON.stringify(messageData));
-            }
-          });
+          sendMessageToClients(messageData);
         }
       } catch (error) {
         if (error.message.includes("Could not find the input entity")) {
@@ -173,26 +159,11 @@ async function listenToChannels(channelUsernames) {
             ? `channel_${message.peerId.channelId}`
             : `user_${message.peerId.userId}`;
 
-          // Traitement du message avec les informations limitées
-          let messageText = message.getText
-            ? message.getText()
-            : message.message || message.text || message.caption || "";
-
-          if (message.entities) {
-            message.entities.forEach((entity) => {
-              if (entity.className === "MessageEntityTextUrl") {
-                const linkText = messageText.substr(
-                  entity.offset,
-                  entity.length
-                );
-                messageText += `\n${linkText}: ${entity.url}`;
-              }
-            });
-          }
+          const messageText = processMessageEntities(message);
 
           if (messageText) {
             console.log(
-              `Nouveau message reçu du canal ${senderUsername}: ${messageText}`
+              `Nouveau message reçu du canal ${senderUsername}:\n${messageText}`
             );
 
             const messageData = {
@@ -202,26 +173,28 @@ async function listenToChannels(channelUsernames) {
               channel: senderUsername,
             };
 
-            connectedClients.forEach((client) => {
-              if (client.readyState === WebSocket.OPEN) {
-                client.send(JSON.stringify(messageData));
-              }
-            });
+            sendMessageToClients(messageData);
           }
         } else {
           console.error("Erreur lors du traitement du message :", error);
         }
       }
     }
+  }
+
+  telegramClient.addEventHandler(async (event) => {
+    try {
+      await handleNewMessage(event);
+    } catch (error) {
+      console.error("Erreur non gérée dans handleNewMessage:", error);
+    }
   }, new NewMessage({}));
 }
 
-// Gestion globale des erreurs non gérées
 process.on("unhandledRejection", (reason, promise) => {
   console.error("Unhandled Rejection at:", promise, "reason:", reason);
 });
 
-// Gestion des erreurs pour Express
 app.use((err, req, res, next) => {
   console.error("Erreur Express:", err.stack);
   res.status(500).send("Something broke!");
