@@ -133,13 +133,14 @@ async function listenToChannels(channelUsernames) {
           sender.title ||
           `channel_${message.peerId.channelId}`;
 
-        if (normalizedChannelUsernames.includes(senderUsername)) {
+        if (
+          normalizedChannelUsernames.includes(senderUsername.replace("@", ""))
+        ) {
           const messageText = processMessageEntities(message);
 
           console.log(
             `Nouveau message reçu du canal @${senderUsername}:\n${messageText}`
           );
-          console.log(`Message entier : ${JSON.stringify(message, null, 2)}`);
 
           const messageData = {
             text: messageText,
@@ -159,21 +160,29 @@ async function listenToChannels(channelUsernames) {
             ? `channel_${message.peerId.channelId}`
             : `user_${message.peerId.userId}`;
 
-          const messageText = processMessageEntities(message);
+          if (
+            normalizedChannelUsernames.includes(senderUsername.replace("@", ""))
+          ) {
+            const messageText = processMessageEntities(message);
 
-          if (messageText) {
+            if (messageText) {
+              console.log(
+                `Nouveau message reçu du canal ${senderUsername}:\n${messageText}`
+              );
+
+              const messageData = {
+                text: messageText,
+                from: senderUsername,
+                date: message.date,
+                channel: senderUsername,
+              };
+
+              sendMessageToClients(messageData);
+            }
+          } else {
             console.log(
-              `Nouveau message reçu du canal ${senderUsername}:\n${messageText}`
+              `Message ignoré du canal non surveillé : ${senderUsername}`
             );
-
-            const messageData = {
-              text: messageText,
-              from: senderUsername,
-              date: message.date,
-              channel: senderUsername,
-            };
-
-            sendMessageToClients(messageData);
           }
         } else {
           console.error("Erreur lors du traitement du message :", error);
