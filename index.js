@@ -47,8 +47,10 @@ const channelUsernames = [
 ];
 
 const normalizedChannelUsernames = channelUsernames.map((username) =>
-  username.replace("@", "")
+  username.replace("@", "").toLowerCase()
 );
+
+let channelIdMap = new Map(); // Map pour stocker les IDs des canaux
 
 initializeTelegram().then(() => {
   listenToChannels(channelUsernames);
@@ -71,8 +73,15 @@ async function initializeTelegram() {
 
     for (const channelUsername of channelUsernames) {
       try {
-        await telegramClient.getEntity(channelUsername);
+        const entity = await telegramClient.getEntity(channelUsername);
         console.log(`Entité mise en cache pour ${channelUsername}`);
+        // Stocker le mapping de l'ID du canal vers le nom d'utilisateur
+        if (entity.id) {
+          channelIdMap.set(
+            entity.id.toString(),
+            channelUsername.replace("@", "").toLowerCase()
+          );
+        }
       } catch (error) {
         console.error(
           `Impossible de mettre en cache l'entité pour ${channelUsername}:`,
@@ -87,15 +96,18 @@ async function initializeTelegram() {
 }
 
 function processMessageEntities(message) {
-  let messageText = message.message || message.text || "";
+  let messageText = message.message || message.text || message.caption || "";
+  console.log("Texte du message avant traitement des entités:", messageText); // Log ajouté
   if (message.entities) {
+    console.log("Entités du message:", message.entities); // Log ajouté
     message.entities.forEach((entity) => {
-      if (entity.className === "MessageEntityTextUrl") {
+      if (entity.type === "text_link") {
         const linkText = messageText.substr(entity.offset, entity.length);
         messageText += `\n${linkText}: ${entity.url}`;
       }
     });
   }
+  console.log("Texte du message après traitement des entités:", messageText); // Log ajouté
   return messageText;
 }
 
@@ -126,6 +138,7 @@ async function listenToChannels(channelUsernames) {
   async function handleNewMessage(event) {
     const message = event.message;
     if (message && message.peerId) {
+      console.log("Nouveau message reçu :", message); // Log ajouté
       try {
         const sender = await telegramClient.getEntity(message.peerId);
         const senderUsername =
@@ -133,8 +146,12 @@ async function listenToChannels(channelUsernames) {
           sender.title ||
           `channel_${message.peerId.channelId}`;
 
+        console.log("Expéditeur du message :", senderUsername); // Log ajouté
+
         if (
-          normalizedChannelUsernames.includes(senderUsername.replace("@", ""))
+          normalizedChannelUsernames.includes(
+            senderUsername.replace("@", "").toLowerCase()
+          )
         ) {
           const messageText = processMessageEntities(message);
 
@@ -150,18 +167,38 @@ async function listenToChannels(channelUsernames) {
           };
 
           sendMessageToClients(messageData);
+        } else {
+          console.log(
+            `Message ignoré du canal non surveillé : ${senderUsername}`
+          ); // Log ajouté
         }
       } catch (error) {
+        console.error("Erreur lors de getEntity :", error); // Log ajouté
         if (error.message.includes("Could not find the input entity")) {
           console.log(
             "Impossible de récupérer l'entité pour ce message. Utilisation des informations disponibles."
           );
-          const senderUsername = message.peerId.channelId
-            ? `channel_${message.peerId.channelId}`
-            : `user_${message.peerId.userId}`;
+
+          let senderUsername = null;
+          let channelId = null;
+
+          if (message.peerId.channelId) {
+            channelId = message.peerId.channelId.toString();
+            senderUsername =
+              channelIdMap.get(channelId) || `channel_${channelId}`;
+          } else if (message.peerId.userId) {
+            senderUsername = `user_${message.peerId.userId}`;
+          }
+
+          console.log("ID du canal :", channelId); // Log ajouté
+          console.log("Nom de l'expéditeur estimé :", senderUsername); // Log ajouté
 
           if (
-            normalizedChannelUsernames.includes(senderUsername.replace("@", ""))
+            senderUsername &&
+            (normalizedChannelUsernames.includes(
+              senderUsername.replace("@", "").toLowerCase()
+            ) ||
+              channelIdMap.has(channelId))
           ) {
             const messageText = processMessageEntities(message);
 
@@ -178,6 +215,8 @@ async function listenToChannels(channelUsernames) {
               };
 
               sendMessageToClients(messageData);
+            } else {
+              console.log("Le texte du message est vide."); // Log ajouté
             }
           } else {
             console.log(
@@ -188,6 +227,8 @@ async function listenToChannels(channelUsernames) {
           console.error("Erreur lors du traitement du message :", error);
         }
       }
+    } else {
+      console.log("Message ou peerId manquant."); // Log ajouté
     }
   }
 
