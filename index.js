@@ -87,10 +87,10 @@ async function initializeTelegram() {
 }
 
 function processMessageEntities(message) {
-  let messageText = message.message || message.text || "";
+  let messageText = message.message || message.text || message.caption || "";
   if (message.entities) {
     message.entities.forEach((entity) => {
-      if (entity.className === "MessageEntityTextUrl") {
+      if (entity.type === "text_link") {
         const linkText = messageText.substr(entity.offset, entity.length);
         messageText += `\n${linkText}: ${entity.url}`;
       }
