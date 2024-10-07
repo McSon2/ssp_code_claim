@@ -97,7 +97,9 @@ async function initializeTelegram() {
 
 function processMessageEntities(message) {
   let messageText = message.message || message.text || message.caption || "";
+  console.log("Texte du message avant traitement des entités:", messageText); // Log ajouté
   if (message.entities) {
+    console.log("Entités du message:", message.entities); // Log ajouté
     message.entities.forEach((entity) => {
       if (entity.type === "text_link") {
         const linkText = messageText.substr(entity.offset, entity.length);
@@ -105,6 +107,7 @@ function processMessageEntities(message) {
       }
     });
   }
+  console.log("Texte du message après traitement des entités:", messageText); // Log ajouté
   return messageText;
 }
 
@@ -135,12 +138,15 @@ async function listenToChannels(channelUsernames) {
   async function handleNewMessage(event) {
     const message = event.message;
     if (message && message.peerId) {
+      console.log("Nouveau message reçu :", message); // Log ajouté
       try {
         const sender = await telegramClient.getEntity(message.peerId);
         const senderUsername =
           sender.username ||
           sender.title ||
           `channel_${message.peerId.channelId}`;
+
+        console.log("Expéditeur du message :", senderUsername); // Log ajouté
 
         if (
           normalizedChannelUsernames.includes(
@@ -161,8 +167,13 @@ async function listenToChannels(channelUsernames) {
           };
 
           sendMessageToClients(messageData);
+        } else {
+          console.log(
+            `Message ignoré du canal non surveillé : ${senderUsername}`
+          ); // Log ajouté
         }
       } catch (error) {
+        console.error("Erreur lors de getEntity :", error); // Log ajouté
         if (error.message.includes("Could not find the input entity")) {
           console.log(
             "Impossible de récupérer l'entité pour ce message. Utilisation des informations disponibles."
@@ -178,6 +189,9 @@ async function listenToChannels(channelUsernames) {
           } else if (message.peerId.userId) {
             senderUsername = `user_${message.peerId.userId}`;
           }
+
+          console.log("ID du canal :", channelId); // Log ajouté
+          console.log("Nom de l'expéditeur estimé :", senderUsername); // Log ajouté
 
           if (
             senderUsername &&
@@ -201,6 +215,8 @@ async function listenToChannels(channelUsernames) {
               };
 
               sendMessageToClients(messageData);
+            } else {
+              console.log("Le texte du message est vide."); // Log ajouté
             }
           } else {
             console.log(
@@ -211,6 +227,8 @@ async function listenToChannels(channelUsernames) {
           console.error("Erreur lors du traitement du message :", error);
         }
       }
+    } else {
+      console.log("Message ou peerId manquant."); // Log ajouté
     }
   }
 
