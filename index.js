@@ -47,8 +47,10 @@ const channelUsernames = [
 ];
 
 const normalizedChannelUsernames = channelUsernames.map((username) =>
-  username.replace("@", "")
+  username.replace("@", "").toLowerCase()
 );
+
+let channelIdMap = new Map(); // Map pour stocker les IDs des canaux
 
 initializeTelegram().then(() => {
   listenToChannels(channelUsernames);
@@ -71,8 +73,15 @@ async function initializeTelegram() {
 
     for (const channelUsername of channelUsernames) {
       try {
-        await telegramClient.getEntity(channelUsername);
+        const entity = await telegramClient.getEntity(channelUsername);
         console.log(`Entité mise en cache pour ${channelUsername}`);
+        // Stocker le mapping de l'ID du canal vers le nom d'utilisateur
+        if (entity.id) {
+          channelIdMap.set(
+            entity.id.toString(),
+            channelUsername.replace("@", "").toLowerCase()
+          );
+        }
       } catch (error) {
         console.error(
           `Impossible de mettre en cache l'entité pour ${channelUsername}:`,
@@ -134,7 +143,9 @@ async function listenToChannels(channelUsernames) {
           `channel_${message.peerId.channelId}`;
 
         if (
-          normalizedChannelUsernames.includes(senderUsername.replace("@", ""))
+          normalizedChannelUsernames.includes(
+            senderUsername.replace("@", "").toLowerCase()
+          )
         ) {
           const messageText = processMessageEntities(message);
 
@@ -156,12 +167,24 @@ async function listenToChannels(channelUsernames) {
           console.log(
             "Impossible de récupérer l'entité pour ce message. Utilisation des informations disponibles."
           );
-          const senderUsername = message.peerId.channelId
-            ? `channel_${message.peerId.channelId}`
-            : `user_${message.peerId.userId}`;
+
+          let senderUsername = null;
+          let channelId = null;
+
+          if (message.peerId.channelId) {
+            channelId = message.peerId.channelId.toString();
+            senderUsername =
+              channelIdMap.get(channelId) || `channel_${channelId}`;
+          } else if (message.peerId.userId) {
+            senderUsername = `user_${message.peerId.userId}`;
+          }
 
           if (
-            normalizedChannelUsernames.includes(senderUsername.replace("@", ""))
+            senderUsername &&
+            (normalizedChannelUsernames.includes(
+              senderUsername.replace("@", "").toLowerCase()
+            ) ||
+              channelIdMap.has(channelId))
           ) {
             const messageText = processMessageEntities(message);
 
