@@ -1,4 +1,3 @@
-
 require("dotenv").config();
 const express = require("express");
 const { TelegramClient } = require("telegram");
@@ -40,12 +39,11 @@ server.on("upgrade", (request, socket, head) => {
   }
 });
 
-const channelUsernames = [
-  "@stakebonusdrops",
-  "@BonusDropStake",
-  "@ssptestcode",
-  "@StakeKickCodes",
-];
+//"@stakebonusdrops",
+//"@BonusDropStake",
+//"@StakeKickCodes",
+
+const channelUsernames = ["@BonusCodesStake", "@ssptestcode"];
 
 const normalizedChannelUsernames = channelUsernames.map((username) =>
   username.replace("@", "").toLowerCase()
