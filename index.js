@@ -43,7 +43,7 @@ server.on("upgrade", (request, socket, head) => {
 //"@BonusDropStake",
 //"@StakeKickCodes",
 
-const channelUsernames = ["@BonusCodesStake", "@ssptestcode"];
+const channelUsernames = ["@BonusCodesStake", "@ssptestcode", "@StakeKickCodes"];
 
 const normalizedChannelUsernames = channelUsernames.map((username) =>
   username.replace("@", "").toLowerCase()
