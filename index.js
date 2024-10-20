@@ -43,7 +43,11 @@ server.on("upgrade", (request, socket, head) => {
 //"@BonusDropStake",
 //"@StakeKickCodes",
 
-const channelUsernames = ["@BonusCodesStake", "@ssptestcode"];
+const channelUsernames = [
+  "@BonusCodesStake",
+  "@ssptestcode",
+  "@StakeKickCodes",
+];
 
 const normalizedChannelUsernames = channelUsernames.map((username) =>
   username.replace("@", "").toLowerCase()
@@ -96,9 +100,9 @@ async function initializeTelegram() {
 
 function processMessageEntities(message) {
   let messageText = message.message || message.text || message.caption || "";
-  console.log("Texte du message avant traitement des entités:", messageText); // Log ajouté
+  console.log("Texte du message avant traitement des entités:", messageText);
   if (message.entities) {
-    console.log("Entités du message:", message.entities); // Log ajouté
+    console.log("Entités du message:", message.entities);
     message.entities.forEach((entity) => {
       if (entity.type === "text_link") {
         const linkText = messageText.substr(entity.offset, entity.length);
@@ -106,7 +110,7 @@ function processMessageEntities(message) {
       }
     });
   }
-  console.log("Texte du message après traitement des entités:", messageText); // Log ajouté
+  console.log("Texte du message après traitement des entités:", messageText);
   return messageText;
 }
 
@@ -116,6 +120,19 @@ function sendMessageToClients(messageData) {
       client.send(JSON.stringify(messageData));
     }
   });
+}
+
+// Nouvelle fonction pour extraire les données du code
+function extractCodeData(messageText) {
+  const codeMatch = messageText.match(/Code:\s*([\w\d]+)/i);
+  const valueMatch = messageText.match(/Value:\s*([^\n]+)/i);
+  const requirementMatch = messageText.match(/Requirement:\s*([^\n]+)/i);
+
+  return {
+    code: codeMatch ? codeMatch[1] : null,
+    value: valueMatch ? valueMatch[1] : null,
+    requirement: requirementMatch ? requirementMatch[1] : null,
+  };
 }
 
 async function listenToChannels(channelUsernames) {
@@ -145,7 +162,7 @@ async function listenToChannels(channelUsernames) {
           sender.title ||
           `channel_${message.peerId.channelId}`;
 
-        console.log("Expéditeur du message :", senderUsername); // Log ajouté
+        console.log("Expéditeur du message :", senderUsername);
 
         if (
           normalizedChannelUsernames.includes(
@@ -158,11 +175,17 @@ async function listenToChannels(channelUsernames) {
             `Nouveau message reçu du canal @${senderUsername}:\n${messageText}`
           );
 
+          // Extraire les données du code
+          const extractedData = extractCodeData(messageText);
+
           const messageData = {
             text: messageText,
             from: senderUsername,
             date: message.date,
             channel: senderUsername,
+            code: extractedData.code,
+            value: extractedData.value,
+            requirement: extractedData.requirement,
           };
 
           sendMessageToClients(messageData);
@@ -170,7 +193,7 @@ async function listenToChannels(channelUsernames) {
           //console.log(`Message ignoré du canal non surveillé : ${senderUsername}`); // Log ajouté
         }
       } catch (error) {
-        console.error("Erreur lors de getEntity :", error); // Log ajouté
+        console.error("Erreur lors de getEntity :", error);
         if (error.message.includes("Could not find the input entity")) {
           console.log(
             "Impossible de récupérer l'entité pour ce message. Utilisation des informations disponibles."
@@ -187,8 +210,8 @@ async function listenToChannels(channelUsernames) {
             senderUsername = `user_${message.peerId.userId}`;
           }
 
-          console.log("ID du canal :", channelId); // Log ajouté
-          console.log("Nom de l'expéditeur estimé :", senderUsername); // Log ajouté
+          console.log("ID du canal :", channelId);
+          console.log("Nom de l'expéditeur estimé :", senderUsername);
 
           if (
             senderUsername &&
@@ -204,16 +227,22 @@ async function listenToChannels(channelUsernames) {
                 `Nouveau message reçu du canal ${senderUsername}:\n${messageText}`
               );
 
+              // Extraire les données du code
+              const extractedData = extractCodeData(messageText);
+
               const messageData = {
                 text: messageText,
                 from: senderUsername,
                 date: message.date,
                 channel: senderUsername,
+                code: extractedData.code,
+                value: extractedData.value,
+                requirement: extractedData.requirement,
               };
 
               sendMessageToClients(messageData);
             } else {
-              console.log("Le texte du message est vide."); // Log ajouté
+              console.log("Le texte du message est vide.");
             }
           } else {
             console.log(
@@ -225,7 +254,7 @@ async function listenToChannels(channelUsernames) {
         }
       }
     } else {
-      console.log("Message ou peerId manquant."); // Log ajouté
+      console.log("Message ou peerId manquant.");
     }
   }
 
