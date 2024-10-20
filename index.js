@@ -73,7 +73,7 @@ async function initializeTelegram() {
     for (const channelUsername of channelUsernames) {
       try {
         const entity = await telegramClient.getEntity(channelUsername);
-        console.log(`Entité mise en cache pour ${channelUsername}`);
+        //console.log(`Entité mise en cache pour ${channelUsername}`);
         // Stocker le mapping de l'ID du canal vers le nom d'utilisateur
         if (entity.id) {
           channelIdMap.set(
@@ -137,7 +137,7 @@ async function listenToChannels(channelUsernames) {
   async function handleNewMessage(event) {
     const message = event.message;
     if (message && message.peerId) {
-      console.log("Nouveau message reçu :", message); // Log ajouté
+      //console.log("Nouveau message reçu :", message); // Log ajouté
       try {
         const sender = await telegramClient.getEntity(message.peerId);
         const senderUsername =
@@ -167,9 +167,7 @@ async function listenToChannels(channelUsernames) {
 
           sendMessageToClients(messageData);
         } else {
-          console.log(
-            `Message ignoré du canal non surveillé : ${senderUsername}`
-          ); // Log ajouté
+          //console.log(`Message ignoré du canal non surveillé : ${senderUsername}`); // Log ajouté
         }
       } catch (error) {
         console.error("Erreur lors de getEntity :", error); // Log ajouté
