@@ -116,16 +116,51 @@ function sendMessageToClients(messageData) {
 
 // Nouvelle fonction pour extraire les données du code
 function extractCodeData(messageText) {
-  const codeMatch = messageText.match(/Code:\s*([\w\d]+)/i);
-  const valueMatch = messageText.match(/Value:\s*([^\n]+)/i);
-  const requirementMatch = messageText.match(/Requirement:\s*([^\n]+)/i);
+  let code = null;
+  let value = null;
+  let requirement = null;
+
+  // Supprimer les espaces inutiles et normaliser les retours à la ligne
+  messageText = messageText.trim().replace(/\r\n/g, "\n");
+
+  // Diviser le message en lignes pour faciliter l'analyse
+  const lines = messageText.split("\n");
+
+  for (const line of lines) {
+    // Vérifier si la ligne contient "Code:"
+    let codeMatch = line.match(/Code:\s*([\S]+)/i);
+    if (codeMatch) {
+      code = codeMatch[1];
+      continue;
+    }
+
+    // Vérifier si la ligne contient "Value:"
+    let valueMatch = line.match(/Value:\s*(.+)/i);
+    if (valueMatch) {
+      value = valueMatch[1];
+      continue;
+    }
+
+    // Vérifier si la ligne contient "Requirement:"
+    let requirementMatch = line.match(/Requirement:\s*(.+)/i);
+    if (requirementMatch) {
+      requirement = requirementMatch[1];
+      continue;
+    }
+
+    // Si aucune correspondance et que le code n'est pas encore défini, supposer que la ligne est le code
+    if (!code && line.trim().length > 0) {
+      code = line.trim();
+    }
+  }
 
   return {
-    code: codeMatch ? codeMatch[1] : null,
-    value: valueMatch ? valueMatch[1] : null,
-    requirement: requirementMatch ? requirementMatch[1] : null,
+    code: code || null,
+    value: value || null,
+    requirement: requirement || null,
   };
 }
+
 
 async function listenToChannels(channelUsernames) {
   if (!telegramInitialized) {
