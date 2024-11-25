@@ -39,10 +39,6 @@ server.on("upgrade", (request, socket, head) => {
   }
 });
 
-//"@stakebonusdrops",
-//"@BonusDropStake",
-//"@StakeKickCodes",
-
 const channelUsernames = [
   "@BonusCodesStake",
   "@ssptestcode",
@@ -77,8 +73,6 @@ async function initializeTelegram() {
     for (const channelUsername of channelUsernames) {
       try {
         const entity = await telegramClient.getEntity(channelUsername);
-        //console.log(`Entité mise en cache pour ${channelUsername}`);
-        // Stocker le mapping de l'ID du canal vers le nom d'utilisateur
         if (entity.id) {
           channelIdMap.set(
             entity.id.toString(),
@@ -100,9 +94,7 @@ async function initializeTelegram() {
 
 function processMessageEntities(message) {
   let messageText = message.message || message.text || message.caption || "";
-  console.log("Texte du message avant traitement des entités:", messageText);
   if (message.entities) {
-    console.log("Entités du message:", message.entities);
     message.entities.forEach((entity) => {
       if (entity.type === "text_link") {
         const linkText = messageText.substr(entity.offset, entity.length);
@@ -110,11 +102,11 @@ function processMessageEntities(message) {
       }
     });
   }
-  console.log("Texte du message après traitement des entités:", messageText);
   return messageText;
 }
 
 function sendMessageToClients(messageData) {
+  console.log("Envoi des données aux clients via WebSocket :", messageData);
   connectedClients.forEach((client) => {
     if (client.readyState === WebSocket.OPEN) {
       client.send(JSON.stringify(messageData));
@@ -154,7 +146,6 @@ async function listenToChannels(channelUsernames) {
   async function handleNewMessage(event) {
     const message = event.message;
     if (message && message.peerId) {
-      //console.log("Nouveau message reçu :", message); // Log ajouté
       try {
         const sender = await telegramClient.getEntity(message.peerId);
         const senderUsername =
@@ -162,18 +153,12 @@ async function listenToChannels(channelUsernames) {
           sender.title ||
           `channel_${message.peerId.channelId}`;
 
-        console.log("Expéditeur du message :", senderUsername);
-
         if (
           normalizedChannelUsernames.includes(
             senderUsername.replace("@", "").toLowerCase()
           )
         ) {
           const messageText = processMessageEntities(message);
-
-          console.log(
-            `Nouveau message reçu du canal @${senderUsername}:\n${messageText}`
-          );
 
           // Extraire les données du code
           const extractedData = extractCodeData(messageText);
@@ -188,17 +173,14 @@ async function listenToChannels(channelUsernames) {
             requirement: extractedData.requirement,
           };
 
+          // Log des données envoyées au WebSocket
+          console.log("Données envoyées au WebSocket :", messageData);
+
           sendMessageToClients(messageData);
-        } else {
-          //console.log(`Message ignoré du canal non surveillé : ${senderUsername}`); // Log ajouté
         }
       } catch (error) {
         console.error("Erreur lors de getEntity :", error);
         if (error.message.includes("Could not find the input entity")) {
-          console.log(
-            "Impossible de récupérer l'entité pour ce message. Utilisation des informations disponibles."
-          );
-
           let senderUsername = null;
           let channelId = null;
 
@@ -210,9 +192,6 @@ async function listenToChannels(channelUsernames) {
             senderUsername = `user_${message.peerId.userId}`;
           }
 
-          console.log("ID du canal :", channelId);
-          console.log("Nom de l'expéditeur estimé :", senderUsername);
-
           if (
             senderUsername &&
             (normalizedChannelUsernames.includes(
@@ -223,10 +202,6 @@ async function listenToChannels(channelUsernames) {
             const messageText = processMessageEntities(message);
 
             if (messageText) {
-              console.log(
-                `Nouveau message reçu du canal ${senderUsername}:\n${messageText}`
-              );
-
               // Extraire les données du code
               const extractedData = extractCodeData(messageText);
 
@@ -240,14 +215,11 @@ async function listenToChannels(channelUsernames) {
                 requirement: extractedData.requirement,
               };
 
+              // Log des données envoyées au WebSocket
+              console.log("Données envoyées au WebSocket :", messageData);
+
               sendMessageToClients(messageData);
-            } else {
-              console.log("Le texte du message est vide.");
             }
-          } else {
-            console.log(
-              `Message ignoré du canal non surveillé : ${senderUsername}`
-            );
           }
         } else {
           console.error("Erreur lors du traitement du message :", error);
